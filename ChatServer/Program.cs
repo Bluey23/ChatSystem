@@ -11,76 +11,69 @@ namespace ChatServer
 {
     class Program
     {
+
+        private static Socket serverSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+
+        private static List<Socket> clientSockets = new List<Socket>();
+
+        private static byte[] buffer = new byte[1024];
+
         static void Main(string[] args)
         {
-            IPAddress ipAddress = Dns.GetHostEntry("localhost").AddressList[0];
-
-            TcpListener serverSocket = new TcpListener(ipAddress, 8888);
-
-            serverSocket.Start();
-            Console.WriteLine("Server Started");
-
-            //client counter
-            int counter = 0;
-
-            while (true)
-            {
-                counter += 1;
-
-
-                TcpClient clientSocket = serverSocket.AcceptTcpClient();
-
-                // Read the data stream from the client. 
-                byte[] bytes = new byte[256];
-                NetworkStream stream = clientSocket.GetStream();
-                stream.Read(bytes, 0, bytes.Length);
-                
-                Console.WriteLine(" >> " + "Client No:" + Convert.ToString(counter) + " started!");
-                
-                handleClinet client = new handleClinet();
-                client.processMsg(clientSocket, stream, bytes);
-
-                
-                //client.StartClient(clientSocket, Convert.ToString(counter));
-                
-            }
+            SetupServer();
+            Console.ReadLine();
         }
+
+        private static void SetupServer()
+        {
+            Console.WriteLine("Setting up Server....");
+            serverSocket.Bind(new IPEndPoint(IPAddress.Any, 8888));
+            serverSocket.Listen(1);
+            serverSocket.BeginAccept(new AsyncCallback(AcceptCallback), null);
+        }
+
+        private static void AcceptCallback(IAsyncResult AR)
+        {
+            Socket socket = serverSocket.EndAccept(AR);
+            Console.WriteLine("Client Connecting");
+            clientSockets.Add(socket);
+            socket.BeginReceive(buffer, 0, buffer.Length, SocketFlags.None, new AsyncCallback(RecieveCallback), socket);
+            serverSocket.BeginAccept(new AsyncCallback(AcceptCallback), null);
+        }
+
+        private static void RecieveCallback(IAsyncResult ar)
+        {
+            Socket socket = (Socket)ar.AsyncState;
+            int received = socket.EndReceive(ar);
+
+            byte[] dataBuffer = new byte[received];
+
+            Array.Copy(buffer, dataBuffer, received);
+
+            string text = Encoding.ASCII.GetString(dataBuffer);
+
+            Console.WriteLine("Text Recieved: " + text);
+
+            SendText("Hello", socket);
+            socket.BeginReceive(buffer, 0, buffer.Length, SocketFlags.None, new AsyncCallback(RecieveCallback), socket);
+
+            
+        }
+
+        private static void SendText(string text, Socket socket)
+        {
+            byte[] data = Encoding.ASCII.GetBytes(text);
+            socket.BeginSend(data, 0, data.Length, SocketFlags.None, new AsyncCallback(SendCallback), socket);
+        }
+
+        private static void SendCallback(IAsyncResult ar)
+        {
+            Socket socket = (Socket)ar.AsyncState;
+            socket.EndSend(ar);
+        }
+
 
     }
 
-    public class handleClinet
-    {
-        TcpClient clientSocket;
-        string clientNo;
-        string mstrMessage;
-        string mstrResponse;
-        byte[] bytesSent;
-
-        public void StartClient(TcpClient inClientSocket, string clientNo)
-        {
-            this.clientSocket = inClientSocket;
-            this.clientNo = clientNo;
-            //Thread ctThread = new Thread(processMsg(clientSocket,);
-            //ctThread.Start();
-        }
-
-        public void processMsg(TcpClient client, NetworkStream stream, byte[] bytesReceived)
-        {
-            // Handle the message received and  
-            // send a response back to the client.
-            mstrMessage = Encoding.ASCII.GetString(bytesReceived, 0, bytesReceived.Length);
-            clientSocket = client;
-            mstrMessage = mstrMessage.Substring(0, 5);
-            if (mstrMessage.Equals("Hello"))
-            {
-                mstrResponse = "Goodbye";
-            }
-            else
-            {
-                mstrResponse = "What?";
-            }
-            bytesSent = Encoding.ASCII.GetBytes(mstrResponse);
-            stream.Write(bytesSent, 0, bytesSent.Length);
-        }
-    }
+   
 }

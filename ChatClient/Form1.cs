@@ -8,82 +8,63 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Net.Sockets;
+using System.Net;
 
 namespace ChatClient
 {
     public partial class Form1 : Form
     {
+
+        private static Socket clientSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+
         public Form1()
         {
             InitializeComponent();
+            LoopConnect();
+            
+            //recieve loop
+            while (true)
+            {
+                byte[] receivedBuffer = new byte[1024];
+                int rec = clientSocket.Receive(receivedBuffer);
+                byte[] data = new byte[rec];
+                Array.Copy(receivedBuffer, data, rec);
+                textBox2.Text = "Message" + Encoding.ASCII.GetString(data);
+                Console.WriteLine("Hello");
+            }
 
         }
 
-        static void Connect(string serverIP, string message)
+        private static void LoopConnect()
         {
-            string output = "";
+            int attempts = 0;
 
-            try
+            while (!clientSocket.Connected)
             {
-                // Create a TcpClient. 
-                // The client requires a TcpServer that is connected 
-                // to the same address specified by the server and port 
-                // combination.
-                Int32 port = 13;
-                TcpClient client = new TcpClient(serverIP, port);
-
-                // Translate the passed message into ASCII and store it as a byte array.
-                Byte[] data = new Byte[256];
-                data = System.Text.Encoding.ASCII.GetBytes(message);
-
-                // Get a client stream for reading and writing. 
-                // Stream stream = client.GetStream();
-                NetworkStream stream = client.GetStream();
-
-                // Send the message to the connected TcpServer. 
-                stream.Write(data, 0, data.Length);
-
-                output = "Sent: " + message;
-                MessageBox.Show(output);
-
-                // Buffer to store the response bytes.
-                data = new Byte[256];
-
-                // String to store the response ASCII representation.
-                String responseData = String.Empty;
-
-                // Read the first batch of the TcpServer response bytes.
-                Int32 bytes = stream.Read(data, 0, data.Length);
-                responseData = System.Text.Encoding.ASCII.GetString(data, 0, bytes);
-                output = "Received: " + responseData;
-                MessageBox.Show(output);
-
-                // Close everything.
-                stream.Close();
-                client.Close();
+                attempts++;
+                try
+                {
+                    clientSocket.Connect(IPAddress.Loopback, 8888);
+                }
+                catch (SocketException)
+                {
+                    Console.WriteLine("attempts" + attempts);
+                }
             }
-            catch (ArgumentNullException e)
-            {
-                output = "ArgumentNullException: " + e;
-                MessageBox.Show(output);
-            }
-            catch (SocketException e)
-            {
-                output = "SocketException: " + e.ToString();
-                MessageBox.Show(output);
-            }
+
         }
+
 
         private void Form1_Load(object sender, EventArgs e)
         {
-            string serverIp = "localhost";
-            string message = "Hello";
-            Connect(serverIp, message);
         }
 
         private void button1_Click(object sender, EventArgs e)
         {
+            string message = textBox1.Text;
 
+            byte[] buffer = Encoding.ASCII.GetBytes(message);
+            clientSocket.Send(buffer);
         }
     }
 }

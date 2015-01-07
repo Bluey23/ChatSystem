@@ -38,6 +38,8 @@ namespace ChatServer
             Console.WriteLine("Client Connecting");
             clientSockets.Add(socket);
             socket.BeginReceive(buffer, 0, buffer.Length, SocketFlags.None, new AsyncCallback(RecieveCallback), socket);
+            byte[] data = Encoding.ASCII.GetBytes(clientSockets.Count.ToString());
+            socket.BeginSend(data, 0, data.Length, SocketFlags.None, new AsyncCallback(SendCallback), socket);
             serverSocket.BeginAccept(new AsyncCallback(AcceptCallback), null);
         }
 
@@ -54,16 +56,19 @@ namespace ChatServer
 
             Console.WriteLine("Text Recieved: " + text);
 
-            SendText("Hello", socket);
+            SendText(text, clientSockets);
             socket.BeginReceive(buffer, 0, buffer.Length, SocketFlags.None, new AsyncCallback(RecieveCallback), socket);
 
             
         }
 
-        private static void SendText(string text, Socket socket)
+        private static void SendText(string text, List<Socket> sockets)
         {
-            byte[] data = Encoding.ASCII.GetBytes(text);
-            socket.BeginSend(data, 0, data.Length, SocketFlags.None, new AsyncCallback(SendCallback), socket);
+            foreach(Socket socket in sockets)
+            {
+                byte[] data = Encoding.ASCII.GetBytes(text);
+                socket.BeginSend(data, 0, data.Length, SocketFlags.None, new AsyncCallback(SendCallback), socket);
+            }
         }
 
         private static void SendCallback(IAsyncResult ar)

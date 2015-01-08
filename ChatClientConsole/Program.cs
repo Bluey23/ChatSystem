@@ -64,6 +64,7 @@ namespace ChatClientConsole
 
                     //Set Client Number
                     //Could Change so that the user can set their name
+                    //Just Wanted a commit
                     byte[] receivedBuffer = new byte[1024];
                     int dataReceived = clientSocket.Receive(receivedBuffer);
                     byte[] data = new byte[dataReceived];
